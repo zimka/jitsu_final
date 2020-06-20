@@ -79,7 +79,7 @@ class HabrParser:
             return int(views.text)
 
 
-class HabrParser:
+class YoutubeParser:
     def __init__(self, url:str, timeout=3):
         self.headers = USER_AGENT_HEADER
         self.url = url
