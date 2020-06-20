@@ -20,9 +20,11 @@ def get_urls_from_spreadsheet(google_sheets_creds: Dict) -> List:
     Забираем список урлов из Google-таблицы
     """
     log.info("get_urls_from_spreadsheet done")
-    return [
-        'https://pikabu.ru/story/schetchik_prosmotrov__skolko_lyudey_uvideli_post_7220783',
-    ]
+    google_connect = SpreadSheetClient()
+    spreadsheet = google_connect.open_spreadsheet("my_airflow101.экселька")
+    worksheet = spreadsheet.get_worksheet(0)
+    values_list = worksheet.col_values(1)
+    return values_list
 
 
 def get_urls_recently_checked(db_engine):
