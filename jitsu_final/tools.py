@@ -1,5 +1,6 @@
 import os
 
+import gspread
 import requests
 
 
@@ -28,4 +29,12 @@ class TgApiClient:
 
 
 class SpreadSheetClient:
-    pass
+    #CREDENTIALS_PATH = '~/.config/gspread/service_account.json'
+
+    def __init__(self):
+        self.gc = gspread.service_account()
+
+    def open_spreadsheet(self, spreadsheet_name: str):
+        self.sh = self.gc.open(spreadsheet_name)
+        return self.sh
+
