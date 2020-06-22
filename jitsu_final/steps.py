@@ -1,7 +1,7 @@
 from typing import Dict, List
 import logging
 
-from .parsers import PikabuParser, ParserCountException
+from .parsers import UniversalViewCounter
 from .model import UrlViewCheckResult, create_engine
 from .tools import SpreadSheetClient, TgApiClient
 
@@ -19,11 +19,11 @@ def get_urls_from_spreadsheet(google_sheets_creds: Dict) -> List:
     """
     Забираем список урлов из Google-таблицы
     """
-    log.info("get_urls_from_spreadsheet done")
-    google_connect = SpreadSheetClient()
-    spreadsheet = google_connect.open_spreadsheet("my_airflow101.экселька")
+    google_connect = SpreadSheetClient(google_sheets_creds.get('creds_path', None))
+    spreadsheet = google_connect.open_spreadsheet(google_sheets_creds['spreadsheet_name'])
     worksheet = spreadsheet.get_worksheet(0)
     values_list = worksheet.col_values(1)
+    log.info("get_urls_from_spreadsheet done")
     return values_list
 
 
@@ -32,36 +32,30 @@ def get_urls_recently_checked(db_engine):
     Забираем из таблицы список уже проверенных
     недавно урлов
     """
-    log.info("get_urls_recently_checked done")
     UrlViewCheckResult.init(db_engine)
-    return UrlViewCheckResult.get_recently_checked_urls(db_engine)
+    urls = UrlViewCheckResult.get_recently_checked_urls(db_engine)
+    log.info("get_urls_recently_checked done")
+    return urls
 
 
 def count_url_views(urls: List) -> List:
     """
-    Возвращает количество просмторов либо текст ошибки
+    Возвращает количество просмотров либо текст ошибки
     для всех урлов в списке
     """
-    views = []
-    pparser = PikabuParser()
+    counter = UniversalViewCounter()
+    view_counts = []
     for u in urls:
-        try:
-            if 'pikabu.ru' in u:
-                value = pparser.get_count(u)
-            else:
-                value = "Failed: don't know how to parse"
-        except ParserCountException as exc:
-            value = "Failed: {}".format(str(exc))
-        views.append(value)
+        view_counts.append(counter.get_count_views_message(u))
     log.info("count_url_views done")
-    return views
+    return view_counts
 
 
-def dump_results_to_db(db_engine, urls: List, results: List) -> None:
+def dump_results_to_db(db_engine, idxs:List, urls: List, results: List) -> None:
     """
     Сохраняем результаты проверки в базу данных
     """
-    UrlViewCheckResult.dump_results(db_engine, urls, results)
+    UrlViewCheckResult.dump_results(db_engine, idxs, urls, results)
     log.info("dump_results_to_db done")
 
 

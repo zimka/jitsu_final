@@ -3,3 +3,4 @@ jitsu_final.egg-info
 env
 .vscode
 .pytest_cache
+geckodriver.log

@@ -28,3 +28,10 @@
 
     from jitsu_final import run_view_count
     run_view_count('postgresql+psycopg2://postgres:0@localhost:5432/postgres', '', {})
+
+
+Запуск тестов
+-------------
+
+$ cd jitsu_final
+$ pytest tests.py

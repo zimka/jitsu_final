@@ -29,10 +29,12 @@ class TgApiClient:
 
 
 class SpreadSheetClient:
-    #CREDENTIALS_PATH = '~/.config/gspread/service_account.json'
+    DEFAULT_CREDENTIALS_PATH = '~/.config/gspread/service_account.json'
 
-    def __init__(self):
-        self.gc = gspread.service_account()
+    def __init__(self, creds_path=None):
+        if creds_path is None:
+            creds_path = self.DEFAULT_CREDENTIALS_PATH
+        self.gc = gspread.service_account(filename=creds_path)
 
     def open_spreadsheet(self, spreadsheet_name: str):
         self.sh = self.gc.open(spreadsheet_name)
