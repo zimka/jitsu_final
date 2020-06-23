@@ -26,13 +26,17 @@ def session_scope(engine):
 class UrlViewCheckResult(Base):
     __tablename__ = "url_view_check_result"
     idx = Column('idx', Integer(), primary_key=True)
-    url = Column('url', String(), unique=True)
+    url = Column('url', String())
     result = Column('result', String(400))
     last_checked_at = Column('last_checked_at', DateTime(), default=datetime.datetime.now)
 
     @classmethod
     def init(cls, engine):
         Base.metadata.create_all(engine)
+
+    @classmethod
+    def get_engine_from_creds(cls, creds):
+        return create_engine(creds)
 
     @classmethod
     def dump_results(cls, engine, idxs, urls, results):
@@ -60,7 +64,9 @@ class UrlViewCheckResult(Base):
     def get_recently_checked_urls(cls, engine, recent_hours=48):
         recent_date = datetime.datetime.now() - datetime.timedelta(hours=recent_hours)
         with session_scope(engine) as session:
-            query = session.query(cls).filter(
+            query = session.query(cls)
+            if recent_hours is not None:
+                query = query.filter(
                 cls.last_checked_at > recent_date
             )
             return list(query.all())

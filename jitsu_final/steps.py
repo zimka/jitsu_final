@@ -15,25 +15,33 @@ fh.setFormatter(
 log.addHandler(fh)
 
 
-def get_urls_from_spreadsheet(google_sheets_creds: Dict) -> List:
+def get_urls_from_spreadsheet(creds_path, spreadsheet_name) -> List:
     """
     Забираем список урлов из Google-таблицы
     """
-    google_connect = SpreadSheetClient(google_sheets_creds.get('creds_path', None))
-    spreadsheet = google_connect.open_spreadsheet(google_sheets_creds['spreadsheet_name'])
+    google_connect = SpreadSheetClient(creds_path)
+    spreadsheet = google_connect.open_spreadsheet(spreadsheet_name)
     worksheet = spreadsheet.get_worksheet(0)
-    values_list = worksheet.col_values(1)
+    urls = worksheet.col_values(1)[2:]
+    idx = list(range(2, len(urls)))
     log.info("get_urls_from_spreadsheet done")
-    return values_list
+    return idx, urls
 
 
-def get_urls_recently_checked(db_engine):
+def write_urls_to_spreadsheet(results, creds_path, spreadsheet_name, top_left_corner='B3'):
+    google_connect = SpreadSheetClient(creds_path)
+    spreadsheet = google_connect.open_spreadsheet(spreadsheet_name)
+    wks = spreadsheet.get_worksheet(0)
+    wks.update(top_left_corner, [[r] for r in results])
+
+
+def get_urls_recently_checked(db_engine, hours=48):
     """
     Забираем из таблицы список уже проверенных
     недавно урлов
     """
     UrlViewCheckResult.init(db_engine)
-    urls = UrlViewCheckResult.get_recently_checked_urls(db_engine)
+    urls = UrlViewCheckResult.get_recently_checked_urls(db_engine, recent_hours=hours)
     log.info("get_urls_recently_checked done")
     return urls
 
@@ -47,6 +55,7 @@ def count_url_views(urls: List) -> List:
     view_counts = []
     for u in urls:
         view_counts.append(counter.get_count_views_message(u))
+    counter.quit()
     log.info("count_url_views done")
     return view_counts
 
