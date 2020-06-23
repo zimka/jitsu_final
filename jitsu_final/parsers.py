@@ -71,10 +71,14 @@ class PornHubParser:
         self.timeout = timeout
 
     def get_count_views(self):
-        response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
-        soup = BeautifulSoup(response.text, "html.parser")
-        views = soup.find('span', class_='count')
-        return int(views.text.replace(" ", ""))
+        try:
+            response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            views = soup.find('span', class_='count')
+            return int(views.text.replace(" ", ""))
+        except(requests.RequestException, ValueError):
+            return f"Domain from url {url} is not supported"
 
 
 class HabrParser:
@@ -86,14 +90,18 @@ class HabrParser:
         self.timeout = timeout
 
     def get_count_views(self):
-        response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
-        soup = BeautifulSoup(response.text, "html.parser")
-        views = soup.find('span', class_='post-stats__views-count')
-        if 'k' in views.text:
-            clean_views = views.text.replace(',', '.').replace('k', '')
-            return int(float(clean_views)*1000)
-        else:
-            return int(views.text)
+        try:
+            response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            views = soup.find('span', class_='post-stats__views-count')
+            if 'k' in views.text:
+                clean_views = views.text.replace(',', '.').replace('k', '')
+                return int(float(clean_views)*1000)
+            else:
+                return int(views.text)
+        except(requests.RequestException, ValueError):
+            return f"Domain from url {url} is not supported"
 
 
 class YoutubeParser:
@@ -105,19 +113,23 @@ class YoutubeParser:
         self.timeout = timeout
 
     def get_count_views(self):
-        response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
-        json_regex = r'window\["ytInitialData"] = ({.*?});'
-        extracted_json = re.search(json_regex, response.text).group(1)
-        if 'contents' in json.loads(extracted_json).keys():
-            try:
-                result_json = json.loads(extracted_json)['contents']["twoColumnWatchNextResults"]['results']['results']['contents'][0]['videoPrimaryInfoRenderer']['viewCount']['videoViewCountRenderer']['viewCount']['simpleText']
-                #views = result_json.replace(' просмотра', '').replace(' просмотров', '').replace(' просмотр', '').replace(' views', '')
-                views = result_json.split(' ')[0].replace('\xa0', '')
-                return int(views)
-            except Exception as exc:
-                return "Failed to parse count"
-        else:
-            return "BROKEN VIDEO" #TODO
+        try:
+            response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            json_regex = r'window\["ytInitialData"] = ({.*?});'
+            extracted_json = re.search(json_regex, response.text).group(1)
+            if 'contents' in json.loads(extracted_json).keys():
+                try:
+                    result_json = json.loads(extracted_json)['contents']["twoColumnWatchNextResults"]['results']['results']['contents'][0]['videoPrimaryInfoRenderer']['viewCount']['videoViewCountRenderer']['viewCount']['simpleText']
+                    #views = result_json.replace(' просмотра', '').replace(' просмотров', '').replace(' просмотр', '').replace(' views', '')
+                    views = result_json.split(' ')[0].replace('\xa0', '')
+                    return int(views)
+                except Exception as exc:
+                    return "Failed to parse count"
+            else:
+                return "BROKEN VIDEO" #TODO
+        except(requests.RequestException, ValueError):
+            return f"Domain from url {url} is not supported"
 
 
 class RuTubeParser:
@@ -129,11 +141,14 @@ class RuTubeParser:
         self.timeout = timeout
 
     def get_count_views(self):
-        response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
-        soup = BeautifulSoup(response.text, "html.parser")
-        views = soup.find('span', class_="video-info-card__view-count")
-        return int(views.text.replace(',', ''))
-
+        try:
+            response = requests.get(url=self.url, headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+            views = soup.find('span', class_="video-info-card__view-count")
+            return int(views.text.replace(',', ''))
+        except(requests.RequestException, ValueError):
+            return f"Domain from url {url} is not supported"
 
 class VimeoParser:
     DOMAIN = "vimeo.com"
@@ -145,12 +160,16 @@ class VimeoParser:
         self.additional_headers = {'accept': 'application/json','x-requested-with': 'XMLHttpRequest'}
 
     def get_count_views(self):
-        self.headers.update(self.additional_headers)
-        response = requests.get(url=f'{self.url}?action=load_stat_counts', headers=self.headers, timeout=self.timeout)
-        if 'total_plays' in response.json().keys():
-            return response.json()['total_plays']['raw']
-        else:
-            return 'NO VIEWS' #TODO
+        try:
+            self.headers.update(self.additional_headers)
+            response = requests.get(url=f'{self.url}?action=load_stat_counts', headers=self.headers, timeout=self.timeout)
+            response.raise_for_status()
+            if 'total_plays' in response.json().keys():
+                return response.json()['total_plays']['raw']
+            else:
+                return 'NO VIEWS' #TODO
+        except(requests.RequestException, ValueError):
+            return f"Domain from url {url} is not supported"
 
 
 class UniversalViewCounter:
