@@ -187,6 +187,8 @@ class UniversalViewCounter:
             RequestException, WebDriverException
         ) as exc:
             return f"Failed to fetch: {exc}"
+        except Exception as exc:
+            return f"Failed because of bug: {exc}"
 
     def quit(self):
         """
