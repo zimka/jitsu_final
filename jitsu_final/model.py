@@ -56,17 +56,24 @@ class UrlViewCheckResult(Base):
         Создает либо перезаписывает в базе записи с измерением
         колчества просмотров
         """
+        if isinstance(engine, str):
+            engine = cls.get_engine_from_creds(engine)
+        cls.init(engine)
         with session_scope(engine) as session:
             for rec in records:
                 session.merge(rec)
 
     @classmethod
-    def get_recently_checked_urls(cls, engine, recent_hours=48):
-        recent_date = datetime.datetime.now() - datetime.timedelta(hours=recent_hours)
+    def get_records(cls, engine, hours=48, older=False):
+        if isinstance(engine, str):
+            engine = cls.get_engine_from_creds(engine)
+        cls.init(engine)
         with session_scope(engine) as session:
             query = session.query(cls)
-            if recent_hours is not None:
-                query = query.filter(
-                cls.last_checked_at > recent_date
-            )
+            if hours is not None:
+                ts = datetime.datetime.now() - datetime.timedelta(hours=hours)
+                if older:
+                    query = query.filter(cls.last_checked_at < ts)
+                else:
+                    query = query.filter(cls.last_checked_at > ts)
             return list(query.all())

@@ -157,19 +157,23 @@ class UniversalViewCounter:
     """
     Обертка над всем парсерами
     """
-    def __init__(self, timeout=3):
+    def __init__(self, timeout=3, use_selenium=False):
         self.timeout = timeout
-        self.pikabu_parser = PikabuParser()
+        self.use_selenium = use_selenium
         self.parsers_callables = [
             VimeoParser,
             RuTubeParser,
             YoutubeParser,
             HabrParser,
             PornHubParser,
+        ]
+        if self.use_selenium:
+            self.pikabu_parser = PikabuParser()
             # через call поддерживает тот же интерфейс что у остальных
             # парсеров, но драйвер создается один раз
-            self.pikabu_parser
-        ]
+            self.parsers_callables.append(self.pikabu_parser)
+
+
     def get_count_views_message(self, url):
         selected_parser = None
         for pc in self.parsers_callables:
@@ -189,4 +193,5 @@ class UniversalViewCounter:
         Костыли!
         Без этого у selenium+firefox memory leak
         """
-        self.pikabu_parser.driver.quit()
+        if self.use_selenium:
+            self.pikabu_parser.driver.quit()
