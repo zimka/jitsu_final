@@ -11,7 +11,7 @@ Base = declarative_base()
 @contextmanager
 def session_scope(engine):
     """Рекомендуемый документацией метод работы с сессией"""
-    Session = sessionmaker(bind=engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
     session = Session()
     try:
         yield session
