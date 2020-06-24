@@ -1,22 +1,22 @@
 import datetime
-from typing import Dict, List
 import logging
+from typing import List
 
+from .model import UrlViewCheckResult
 from .parsers import UniversalViewCounter
-from .model import UrlViewCheckResult, create_engine
-from .tools import SpreadSheetClient, TgApiClient
+from .tools import SpreadSheetClient
 
-
-log = logging.getLogger('jitsu_final')
+log = logging.getLogger("jitsu_final")
 log.setLevel(logging.INFO)
-fh = logging.FileHandler('/tmp/jitsu_final.log')
-fh.setFormatter(
-    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-)
+fh = logging.FileHandler("/tmp/jitsu_final.log")
+fh.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 log.addHandler(fh)
 
 
-def get_urls_from_spreadsheet(creds_path, spreadsheet_name) -> List:
+HOME_PATH = "/home/smirn08m/WORKSPACE/PROJECT"
+
+
+def get_urls_from_spreadsheet(creds_path: str, spreadsheet_name: str) -> List:
     """
     Забираем список урлов из Google-таблицы
     """
@@ -24,16 +24,19 @@ def get_urls_from_spreadsheet(creds_path, spreadsheet_name) -> List:
     spreadsheet = google_connect.open_spreadsheet(spreadsheet_name)
     worksheet = spreadsheet.get_worksheet(0)
     urls = worksheet.col_values(1)[2:]
-    idx = list(range(2, len(urls)))
+    log.info(len(urls))
+    idx = list(range(3, len(urls) + 3))
     log.info("get_urls_from_spreadsheet done")
     return idx, urls
 
 
-def write_urls_to_spreadsheet(results, creds_path, spreadsheet_name, top_left_corner='B3'):
+def write_urls_to_spreadsheet(
+    results: List, creds_path: str, spreadsheet_name: str, top_left_corner="B3"
+):
     google_connect = SpreadSheetClient(creds_path)
     spreadsheet = google_connect.open_spreadsheet(spreadsheet_name)
-    wks = spreadsheet.get_worksheet(0)
-    wks.update(top_left_corner, [[r] for r in results])
+    worksheet = spreadsheet.get_worksheet(0)
+    worksheet.update(top_left_corner, [[r] for r in results])
 
 
 def count_url_views(urls: List) -> List:
@@ -50,23 +53,35 @@ def count_url_views(urls: List) -> List:
     return view_counts
 
 
-
-def send_tg_report(tg_creds: Dict, urls: List, results: List):
+def telegram_file_report_generation(true_result: List, *args, **context):
     """
-    Посылаем репорт о результатах в телеграм
+    Создание файла с ошибками для репорта в телеграм
     """
-    log.info("send_tg_report done")
+    error_counter = 0
+    with open(f"{HOME_PATH}/parser_errors.txt", "w") as txtfile:
+        for one_result in true_result:
+            try:
+                int(one_result[1])
+            except ValueError:
+                txtfile.write(", ".join(str(s) for s in (one_result[0], one_result[2])) + "\n")
+                error_counter += 1
+        print(error_counter)
+        context["task_instance"].xcom_push(key="error_counter", value=error_counter)
+    log.info("tg_file_report done")
 
 
-def pull_data_step(db_creds, google_spreadsheet_name, google_config_path=None):
+def pull_data_step(
+    db_creds: str, google_spreadsheet_name: str, google_config_path=None, *args, **context
+):
     gs_idx, gs_urls = get_urls_from_spreadsheet(google_config_path, google_spreadsheet_name)
     db_records_all = UrlViewCheckResult.get_records(db_creds)
+    context["task_instance"].xcom_push(key="gs_urls_count", value=len(gs_idx))
 
     for rec in db_records_all:
         if rec.idx in gs_idx:
             gs_row = gs_idx.index(rec.idx)
             # у нас индекс в таблице - PK
-            if gs_urls[gs_urls] == rec.url:
+            if gs_urls[gs_row] == rec.url:
                 # не изменена
                 gs_idx.pop(gs_row)
                 gs_urls.pop(gs_row)
@@ -75,14 +90,11 @@ def pull_data_step(db_creds, google_spreadsheet_name, google_config_path=None):
         UrlViewCheckResult(idx=idx, url=url, result="", last_checked_at=some_old_date)
         for (idx, url) in zip(gs_idx, gs_urls)
     ]
-    UrlViewCheckResult.dump_records(
-        UrlViewCheckResult.get_engine_from_creds(db_creds),
-        records
-    )
+    UrlViewCheckResult.dump_records(UrlViewCheckResult.get_engine_from_creds(db_creds), records)
 
 
-def update_data_step(db_creds):
-    db_records_old = UrlViewCheckResult.get_records(db_creds, 48, older=True)
+def update_data_step(db_creds: str):
+    db_records_old = UrlViewCheckResult.get_records(db_creds, hours=48, older=True)
     urls = [rec.url for rec in db_records_old]
     counts = count_url_views(urls)
     now = datetime.datetime.now()
@@ -92,9 +104,22 @@ def update_data_step(db_creds):
     UrlViewCheckResult.dump_records(db_creds, db_records_old)
 
 
-def push_data_step(db_creds, google_spreadsheet_name, google_config_path=None):
-    db_records_recent = UrlViewCheckResult.get_records(db_creds, 2, older=False),
-
-    results = [rec.result for rec in sorted(db_records_recent, key=lambda x: x.idx)]
+def push_data_step(
+    db_creds: str, google_spreadsheet_name: str, google_config_path=None, *args, **context
+):
+    db_records_recent = (UrlViewCheckResult.get_records(db_creds, hours=1, older=False),)
+    rec_idx = []
+    rec_result = []
+    rec_url = []
+    for rec in db_records_recent:
+        for one in rec:
+            rec_idx.append(one.idx)
+            rec_result.append(one.result)
+            rec_url.append(one.url)
+    records_result = list(zip(rec_idx, rec_result, rec_url))
+    true_result = sorted(records_result, key=lambda x: x[0])
+    results = [result[1] for result in true_result]
+    print(results)
+    telegram_file_report_generation(true_result, *args, **context)
     write_urls_to_spreadsheet(results, google_config_path, google_spreadsheet_name)
-    # TODO - пишем в телегу
+    context["task_instance"].xcom_push(key="results_count", value=len(results))
