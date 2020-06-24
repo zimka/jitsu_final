@@ -1,12 +1,12 @@
-from contextlib import contextmanager
 import datetime
+from contextlib import contextmanager
 
-from sqlalchemy import create_engine
-from sqlalchemy import Column, Integer, DateTime, String
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 Base = declarative_base()
+
 
 @contextmanager
 def session_scope(engine):
@@ -25,10 +25,10 @@ def session_scope(engine):
 
 class UrlViewCheckResult(Base):
     __tablename__ = "url_view_check_result"
-    idx = Column('idx', Integer(), primary_key=True)
-    url = Column('url', String())
-    result = Column('result', String(400))
-    last_checked_at = Column('last_checked_at', DateTime(), default=datetime.datetime.now)
+    idx = Column("idx", Integer(), primary_key=True)
+    url = Column("url", String())
+    result = Column("result", String(400))
+    last_checked_at = Column("last_checked_at", DateTime(), default=datetime.datetime.now)
 
     @classmethod
     def init(cls, engine):
@@ -76,4 +76,5 @@ class UrlViewCheckResult(Base):
                     query = query.filter(cls.last_checked_at < ts)
                 else:
                     query = query.filter(cls.last_checked_at > ts)
+            print(len(list(query.all())))
             return list(query.all())
