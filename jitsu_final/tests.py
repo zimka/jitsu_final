@@ -31,4 +31,3 @@ def test_save_n_load():
     )
     records = UrlViewCheckResult.get_recently_checked_urls(test_engine, recent_hours=4)
     assert len(records) == len(idxs) + 1
-
